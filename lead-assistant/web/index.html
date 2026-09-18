@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5"
+    />
+    <title>Lead Assistant</title>
+    <meta name="description" content="Your leads, your call list, and every callback you promised." />
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <meta name="theme-color" content="#4f46e5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b0b12" media="(prefers-color-scheme: dark)" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Leads" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <style>
+      /* Painted before React loads, so a cold start is never a white flash. */
+      :root { color-scheme: light dark; }
+      html, body { margin: 0; height: 100%; background: #f6f6fb; }
+      @media (prefers-color-scheme: dark) {
+        html, body { background: #0b0b12; }
+      }
+      #boot {
+        position: fixed; inset: 0; display: grid; place-items: center;
+        font: 500 15px/1.4 system-ui, sans-serif; color: #6b7280;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"><div id="boot">Loading your leads...</div></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

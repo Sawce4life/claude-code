@@ -75,6 +75,9 @@ export function blankTask(overrides = {}, now = Date.now()) {
 /** Outcomes that count as having actually reached the person. */
 const REACHED = new Set(['talked', 'meeting_booked', 'closed_won', 'not_interested', 'callback']);
 
+/** Outcomes where the phone rang out: an attempt, not a conversation. */
+const NOT_REACHED = new Set(['no_answer', 'voicemail', 'wrong_number']);
+
 /**
  * Turns a parsed note into the concrete rows to write: possibly a new lead,
  * one interaction, and the updated lead fields. Pure, so it can be tested and
@@ -107,7 +110,7 @@ export function draftToRecords(draft, { leads = [], now = Date.now() } = {}) {
   }, now);
 
   const leadPatch = { updated_at: now };
-  if (interaction.kind !== 'note') {
+  if (interaction.kind !== 'note' && !NOT_REACHED.has(interaction.outcome)) {
     leadPatch.last_contact_at = Math.max(lead.last_contact_at || 0, interaction.occurred_at);
   }
   if (draft.status) leadPatch.status = draft.status;
@@ -120,6 +123,9 @@ export function draftToRecords(draft, { leads = [], now = Date.now() } = {}) {
     leadPatch.next_action = draft.nextAction;
   } else if (draft.status === 'won' || draft.status === 'lost') {
     leadPatch.next_action = '';
+    leadPatch.next_action_at = null;
+  } else if (lead.next_action_at != null && lead.next_action_at <= now) {
+    // The promise came due and has now been acted on; let cadence take over.
     leadPatch.next_action_at = null;
   }
 

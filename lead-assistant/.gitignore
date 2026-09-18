@@ -7,3 +7,7 @@ data/
 *.db-shm
 .env
 .DS_Store
+
+# local verification scripts, not part of the app
+.browser-check.mjs
+.dark-check.mjs

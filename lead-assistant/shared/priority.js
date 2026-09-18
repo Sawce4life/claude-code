@@ -25,15 +25,37 @@ const BUCKET_LABELS = {
   due: 'Going cold', upcoming: 'Coming up', resting: 'Recently touched',
 };
 
-function lastContactOf(lead, interactionsByLead) {
+/** Outcomes where the phone rang out: an attempt, but not a conversation. */
+const NOT_REACHED = new Set(['no_answer', 'voicemail', 'wrong_number']);
+
+/**
+ * Separates "I tried" from "I got through". Three voicemails in a row is not
+ * the same as a conversation three days ago, and the list has to know that.
+ */
+function contactHistory(lead, interactionsByLead) {
   const list = interactionsByLead.get(lead.id) || [];
-  let latest = lead.last_contact_at || 0;
-  for (const it of list) {
-    if (it.deleted) continue;
-    if (it.kind === 'note') continue; // a note to self is not a touch
-    if ((it.occurred_at || 0) > latest) latest = it.occurred_at || 0;
+  let lastReached = lead.last_contact_at || 0;
+  let lastAttempt = lead.last_contact_at || 0;
+
+  for (const item of list) {
+    if (item.deleted) continue;
+    if (item.kind === 'note') continue; // a note to self is not a touch
+    const at = item.occurred_at || 0;
+    if (at > lastAttempt) lastAttempt = at;
+    if (!NOT_REACHED.has(item.outcome) && at > lastReached) lastReached = at;
   }
-  return latest || null;
+
+  let missedTries = 0;
+  for (const item of list) {
+    if (item.deleted || item.kind === 'note') continue;
+    if (NOT_REACHED.has(item.outcome) && (item.occurred_at || 0) > lastReached) missedTries += 1;
+  }
+
+  return {
+    lastReached: lastReached || null,
+    lastAttempt: lastAttempt || null,
+    missedTries,
+  };
 }
 
 /**
@@ -45,10 +67,12 @@ export function scoreLead(lead, context) {
   const todayStart = startOfDay(now, timezone);
   const todayEnd = endOfDay(now, timezone);
 
-  const lastContact = lastContactOf(lead, interactionsByLead);
-  const daysSince = lastContact == null ? null : daysBetween(lastContact, now, timezone);
+  const { lastReached, lastAttempt, missedTries } = contactHistory(lead, interactionsByLead);
+  const daysSinceReached = lastReached == null ? null : daysBetween(lastReached, now, timezone);
+  const daysSinceAttempt = lastAttempt == null ? null : daysBetween(lastAttempt, now, timezone);
   const cadence = CADENCE_DAYS[lead.status] ?? 7;
   const due = lead.next_action_at || null;
+  const triedToday = daysSinceAttempt === 0;
 
   let bucket;
   let score;
@@ -68,7 +92,12 @@ export function scoreLead(lead, context) {
     reason = lead.next_action
       ? `${lead.next_action} -- ${describeTime(due, timezone, now)}`
       : `Scheduled for ${describeTime(due, timezone, now)}`;
-  } else if (lastContact == null) {
+  } else if (due != null) {
+    const daysOut = Math.max(1, daysBetween(now, due, timezone));
+    bucket = 'upcoming';
+    score = 120 - Math.min(daysOut, 60);
+    reason = `${lead.next_action || 'Follow-up'} -- ${describeTime(due, timezone, now)}`;
+  } else if (lastAttempt == null) {
     const ageDays = lead.created_at ? Math.max(0, daysBetween(lead.created_at, now, timezone)) : 0;
     bucket = 'new';
     // Speed matters most on fresh leads, but an untouched old one still nags.
@@ -76,19 +105,29 @@ export function scoreLead(lead, context) {
     reason = ageDays === 0
       ? 'New lead -- never contacted'
       : `Never contacted, ${ageDays} day${ageDays === 1 ? '' : 's'} old`;
-  } else if (due == null && daysSince >= cadence) {
+  } else if (lastReached == null) {
+    // Tried, never got through. Worth another go tomorrow, not in an hour.
+    if (triedToday) {
+      bucket = 'resting';
+      score = 90;
+      reason = missedTries > 1
+        ? `Tried again today -- ${missedTries} attempts, still no answer`
+        : 'Tried today, no answer yet';
+    } else {
+      bucket = 'due';
+      score = 520 + Math.min(missedTries, 6) * 6 + Math.min(daysSinceAttempt - 1, 30) * 8;
+      reason = `${missedTries || 1} attempt${missedTries === 1 ? '' : 's'}, never got through`;
+    }
+  } else if (daysSinceReached >= cadence && !triedToday) {
     bucket = 'due';
-    score = 400 + Math.min(daysSince - cadence, 60) * 9;
-    reason = `No contact in ${daysSince} day${daysSince === 1 ? '' : 's'}`;
-  } else if (due != null) {
-    const daysOut = Math.max(1, daysBetween(now, due, timezone));
-    bucket = 'upcoming';
-    score = 120 - Math.min(daysOut, 60);
-    reason = `${lead.next_action || 'Follow-up'} -- ${describeTime(due, timezone, now)}`;
+    score = 400 + Math.min(daysSinceReached - cadence, 60) * 9;
+    reason = `No contact in ${daysSinceReached} day${daysSinceReached === 1 ? '' : 's'}`;
   } else {
     bucket = 'resting';
-    score = 80 - Math.min(cadence - daysSince, 30);
-    reason = `Spoke ${daysSince === 0 ? 'today' : `${daysSince} day${daysSince === 1 ? '' : 's'} ago`}`;
+    score = 80 - Math.min(Math.max(cadence - daysSinceReached, 0), 30);
+    reason = daysSinceReached === 0
+      ? 'Spoke today'
+      : `Spoke ${daysSinceReached} day${daysSinceReached === 1 ? '' : 's'} ago`;
   }
 
   score += STATUS_BONUS[lead.status] ?? 0;
@@ -106,8 +145,10 @@ export function scoreLead(lead, context) {
     bucketLabel: BUCKET_LABELS[bucket],
     score: Math.round(score * 100) / 100,
     reason,
-    lastContactAt: lastContact,
-    daysSinceContact: daysSince,
+    lastContactAt: lastReached,
+    lastAttemptAt: lastAttempt,
+    missedTries,
+    daysSinceContact: daysSinceReached,
     dueAt: due,
     openTasks: openTasks.length,
   };

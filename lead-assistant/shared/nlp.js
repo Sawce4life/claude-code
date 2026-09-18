@@ -225,6 +225,76 @@ export function matchLead(text, leads = []) {
   return best && best.score >= 12 ? best : null;
 }
 
+const NOT_A_NAME = new Set([
+  'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+  'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august',
+  'september', 'october', 'november', 'december', 'today', 'tomorrow', 'tonight',
+  'him', 'her', 'them', 'they', 'the', 'a', 'an', 'me', 'us', 'it', 'his', 'she',
+  'he', 'we', 'i', 'no', 'next', 'last', 'this', 'voicemail', 'vm',
+]);
+
+const LEADING_NOT_NAME = new Set([
+  'called', 'call', 'calling', 'spoke', 'talked', 'met', 'tried', 'trying', 'left',
+  'sent', 'texted', 'emailed', 'rang', 'booked', 'closed', 'followed', 'follow',
+  'reached', 'got', 'had', 'have', 'need', 'needs', 'should', 'will', 'just',
+  'quick', 'still', 'waiting', 'set', 'setting', 'sold', 'signed', 'missed',
+  'picked', 'dropped', 'stopped', 'swung', 'pinged', 'chased', 'confirmed',
+  'scheduled', 'checked', 'check', 'update', 'updated', 'note', 'notes',
+  'voicemail', 'message', 'messaged', 'new', 'yes', 'maybe', 'not', 'and', 'but',
+  'also', 'then', 'after', 'before', 'went', 'saw', 'ran', 'spoke', 'gave',
+]);
+
+function looksLikeName(candidate) {
+  if (!candidate) return false;
+  const words = candidate.trim().split(/\s+/);
+  if (!words.length || words.length > 3) return false;
+  // A real name is capitalised. The verb before it is matched case-insensitively,
+  // so this is what keeps "called him back" from producing a lead named "him".
+  return words.every(
+    (word) => word.length > 1 && /^[A-Z]/.test(word) && !NOT_A_NAME.has(word.toLowerCase()),
+  );
+}
+
+/**
+ * Pulls a probable name, company and phone number out of a note about someone
+ * who is not on the list yet. Conservative: it would rather return nothing than
+ * invent a lead called "Thursday".
+ */
+export function guessContact(text) {
+  const raw = String(text || '');
+  const out = { name: '', company: '', phone: '' };
+
+  // The verb is matched without regard to case, but the name that follows must
+  // be capitalised -- matched separately so a trailing lowercase word such as
+  // "at" is never pulled into the name.
+  const lead = /\b(?:spoke (?:to|with)|talked (?:to|with)|met (?:with\s)?|call(?:ed|ing)?|rang|text(?:ed)?|email(?:ed)?|reached out to|got off (?:the phone )?with|with|from|for)\s+/i.exec(raw);
+  if (lead) {
+    const after = raw.slice(lead.index + lead[0].length);
+    const nameMatch = after.match(/^([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+){0,2})/);
+    if (nameMatch && looksLikeName(nameMatch[1])) out.name = nameMatch[1].trim();
+  }
+
+  if (!out.name) {
+    // "Priya Raman at Lakeside wants a quote" -- the name opens the sentence.
+    const opener = raw.trim().match(/^([A-Z][\w'-]+(?:\s+[A-Z][\w'-]+){0,2})/);
+    if (opener && looksLikeName(opener[1])) {
+      const firstWord = opener[1].split(/\s+/)[0].toLowerCase();
+      if (!LEADING_NOT_NAME.has(firstWord)) out.name = opener[1].trim();
+    }
+  }
+
+  const companyMatch = raw.match(/\b[Aa]t\s+([A-Z][\w&'.-]*(?:\s+[A-Z][\w&'.-]*){0,2})/);
+  if (companyMatch && looksLikeName(companyMatch[1])) out.company = companyMatch[1].trim();
+
+  const phoneMatch = raw.match(/(\+?\d[\d\s().-]{6,}\d)/);
+  if (phoneMatch) {
+    const digits = phoneMatch[1].replace(/\D/g, '');
+    if (digits.length >= 7 && digits.length <= 15) out.phone = phoneMatch[1].trim();
+  }
+
+  return out;
+}
+
 /**
  * Turns "just got off with Mike at Acme, wants a callback Thursday" into the
  * fields the app stores. Every field is a suggestion the person can edit.
@@ -267,9 +337,12 @@ export function parseCallLog(text, { now = Date.now(), timezone = 'UTC', leads =
     || outcome === 'meeting_booked'
   );
 
+  const guessed = match ? null : guessContact(raw);
+
   return {
     leadId: match ? match.lead.id : null,
-    leadName: match ? match.lead.name : null,
+    leadName: match ? match.lead.name : (guessed.name || null),
+    newLead: match ? null : guessed,
     confidence: match ? Math.min(1, match.score / 60) : 0,
     kind,
     direction: /\b(?:called|texted|emailed|reached out|rang)\b/.test(lower) ? 'out' : 'in',

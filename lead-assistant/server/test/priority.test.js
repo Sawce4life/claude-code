@@ -115,3 +115,63 @@ test('scoring a single lead is side-effect free', () => {
   });
   assert.equal(JSON.stringify(l), snapshot);
 });
+
+test('a voicemail is an attempt, not a conversation', () => {
+  const reached = lead({ id: 'reached', name: 'Reached', status: 'contacted' });
+  const rangOut = lead({ id: 'rang-out', name: 'Rang out', status: 'contacted' });
+  const interactions = [
+    blankInteraction({ lead_id: 'reached', kind: 'call', outcome: 'talked', occurred_at: NOW - 2 * DAY_MS }, NOW),
+    blankInteraction({ lead_id: 'rang-out', kind: 'call', outcome: 'voicemail', occurred_at: NOW - 2 * DAY_MS }, NOW),
+  ];
+  const ranked = rankLeads({ leads: [reached, rangOut], interactions, now: NOW, timezone: TZ });
+
+  const a = ranked.find((e) => e.leadId === 'reached');
+  const b = ranked.find((e) => e.leadId === 'rang-out');
+  assert.equal(a.bucket, 'resting', 'a real conversation buys a few days of quiet');
+  assert.equal(b.bucket, 'due', 'an unanswered call still needs chasing');
+  assert.match(b.reason, /never got through/);
+  assert.ok(b.score > a.score);
+});
+
+test('repeated no-answers raise urgency but not twice in one day', () => {
+  const chased = lead({ id: 'chased', name: 'Chased', status: 'contacted' });
+  const interactions = [
+    blankInteraction({ id: 'i1', lead_id: 'chased', kind: 'call', outcome: 'no_answer', occurred_at: NOW - 3 * DAY_MS }, NOW),
+    blankInteraction({ id: 'i2', lead_id: 'chased', kind: 'call', outcome: 'no_answer', occurred_at: NOW - 2 * DAY_MS }, NOW),
+  ];
+  const twoTries = rankLeads({ leads: [chased], interactions, now: NOW, timezone: TZ })[0];
+  assert.equal(twoTries.bucket, 'due');
+  assert.equal(twoTries.missedTries, 2);
+
+  // Having just tried again, they drop off today's list until tomorrow.
+  const triedAgain = [...interactions, blankInteraction({ id: 'i3', lead_id: 'chased', kind: 'call', outcome: 'no_answer', occurred_at: NOW - 60 * 1000 }, NOW)];
+  const justTried = rankLeads({ leads: [chased], interactions: triedAgain, now: NOW, timezone: TZ })[0];
+  assert.equal(justTried.bucket, 'resting');
+  assert.match(justTried.reason, /today/);
+});
+
+test('an unanswered call does not reset a promise made for later', () => {
+  const promised = lead({
+    id: 'promised',
+    name: 'Promised',
+    status: 'contacted',
+    next_action: 'Call about the quote',
+    next_action_at: NOW + 4 * DAY_MS,
+  });
+  const interactions = [
+    blankInteraction({ lead_id: 'promised', kind: 'call', outcome: 'no_answer', occurred_at: NOW - 60 * 1000 }, NOW),
+  ];
+  const entry = rankLeads({ leads: [promised], interactions, now: NOW, timezone: TZ })[0];
+  assert.equal(entry.bucket, 'upcoming');
+  assert.equal(entry.dueAt, promised.next_action_at, 'the future commitment is untouched');
+});
+
+test('a lead spoken to today is not offered again the same day', () => {
+  const spoken = lead({ id: 'spoken', name: 'Spoken', status: 'hot' });
+  const interactions = [
+    blankInteraction({ lead_id: 'spoken', kind: 'call', outcome: 'talked', occurred_at: NOW - 2 * HOUR_MS }, NOW),
+  ];
+  const entry = rankLeads({ leads: [spoken], interactions, now: NOW, timezone: TZ })[0];
+  assert.equal(entry.bucket, 'resting');
+  assert.equal(entry.reason, 'Spoke today');
+});

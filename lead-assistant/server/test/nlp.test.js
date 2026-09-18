@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseWhen, parseCallLog, matchLead } from '../../shared/nlp.js';
+import { parseWhen, parseCallLog, matchLead, guessContact } from '../../shared/nlp.js';
 import { zonedParts, startOfDay, daysBetween, DAY_MS } from '../../shared/timezone.js';
 import { blankLead, draftToRecords } from '../../shared/records.js';
 
@@ -157,5 +157,50 @@ test('local midnight is a real instant in every zone tested', () => {
     const start = startOfDay(NOW, tz);
     assert.equal(zonedParts(start, tz).hour, 0, `${tz} midnight`);
     assert.ok(NOW - start < DAY_MS && NOW >= start, `${tz} contains now`);
+  }
+});
+
+test('a new person name, company and number are pulled out of the note', () => {
+  const guess = guessContact(
+    'Just got off the phone with Mike Torres at Acme Roofing, 555-0142. Wants pricing.',
+  );
+  assert.equal(guess.name, 'Mike Torres');
+  assert.equal(guess.company, 'Acme Roofing');
+  assert.equal(guess.phone, '555-0142');
+});
+
+test('a weekday is never mistaken for a person', () => {
+  assert.equal(guessContact('Call back Thursday morning').name, '');
+  assert.equal(guessContact('spoke to him again today').name, '');
+  assert.equal(guessContact('left a voicemail').name, '');
+});
+
+test('an unknown caller becomes a named lead, not "Unnamed lead"', () => {
+  const draft = parseCallLog(
+    'Called Priya Raman at Lakeside Dental on 555-0188, she wants a quote next week.',
+    { ...ctx, leads: [] },
+  );
+  const { createdLead } = draftToRecords(draft, { leads: [], now: NOW });
+  assert.equal(createdLead.name, 'Priya Raman');
+  assert.equal(createdLead.company, 'Lakeside Dental');
+  assert.ok(createdLead.phone.includes('555-0188'));
+});
+
+test('a name is found wherever the sentence puts it', () => {
+  assert.equal(guessContact('Left a voicemail for Dana Whitfield 555-0199').name, 'Dana Whitfield');
+  assert.equal(guessContact('Priya Raman at Lakeside Dental wants a quote').name, 'Priya Raman');
+  assert.equal(guessContact('Spoke with Mike Torres at Acme Roofing').name, 'Mike Torres');
+  assert.equal(guessContact('Dana said she will call me back').name, 'Dana');
+});
+
+test('a sentence that opens with a verb never invents a lead', () => {
+  for (const text of [
+    'Called back Thursday as promised',
+    'No answer on the Johnson job',
+    'Sent the proposal over',
+    'Tried again, still nothing',
+    'Left a message',
+  ]) {
+    assert.equal(guessContact(text).name, '', `"${text}" should not yield a name`);
   }
 });

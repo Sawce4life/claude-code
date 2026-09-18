@@ -1,0 +1,23 @@
+{
+  "name": "Lead Assistant",
+  "short_name": "Leads",
+  "description": "Your leads, your call list, and every callback you promised.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "portrait-primary",
+  "background_color": "#0b0b12",
+  "theme_color": "#4f46e5",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Today's calls", "url": "/?view=today" },
+    { "name": "Log a call", "url": "/?action=log" },
+    { "name": "Ask the assistant", "url": "/?view=ask" }
+  ]
+}
