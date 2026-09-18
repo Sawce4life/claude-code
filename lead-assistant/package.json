@@ -1,0 +1,18 @@
+{
+  "name": "lead-assistant",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "An AI assistant that keeps track of your leads: who to call, what you said, and when to call back.",
+  "license": "MIT",
+  "engines": { "node": ">=22.5.0" },
+  "workspaces": ["server", "web"],
+  "scripts": {
+    "setup": "npm install && npm run build",
+    "build": "npm run build --workspace web",
+    "start": "node --disable-warning=ExperimentalWarning server/src/index.js",
+    "dev": "node scripts/dev.mjs",
+    "test": "node --test --disable-warning=ExperimentalWarning \"server/test/*.test.js\"",
+    "icons": "node scripts/make-icons.mjs"
+  }
+}

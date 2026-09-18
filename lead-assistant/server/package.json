@@ -1,0 +1,10 @@
+{
+  "name": "@lead-assistant/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.js",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0"
+  }
+}
