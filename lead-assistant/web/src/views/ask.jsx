@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Empty, Notice } from '../components/ui.jsx';
 import { IconSend, IconSpark } from '../components/icons.jsx';
-import { askStream } from '../store.js';
+import { askStream, flushChanges } from '../store.js';
 
 const SUGGESTIONS = [
   'Who have I not called in over a week?',
@@ -46,6 +46,7 @@ export function AskView({ state }) {
     abortRef.current = controller;
 
     try {
+      await flushChanges();
       await askStream({
         question: value,
         history,

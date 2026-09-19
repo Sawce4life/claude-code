@@ -3,7 +3,7 @@ import { LeadRow } from '../components/lead-row.jsx';
 import { Empty, Notice } from '../components/ui.jsx';
 import { IconSpark, IconRefresh, IconClock } from '../components/icons.jsx';
 import { api } from '../api.js';
-import { rankedList, bucketCounts, snooze, timezoneOf } from '../store.js';
+import { rankedList, bucketCounts, snooze, timezoneOf, flushChanges } from '../store.js';
 import { addDays, startOfDay, nextWeekday, DAY_MS } from '@shared/timezone.js';
 
 const GROUPS = [
@@ -39,6 +39,7 @@ export function TodayView({ state, onOpenLead, onLog }) {
     setBriefBusy(true);
     setBriefError('');
     try {
+      await flushChanges();
       const result = await api.brief();
       setBrief(result.brief);
     } catch (err) {
@@ -66,7 +67,7 @@ export function TodayView({ state, onOpenLead, onLog }) {
         </div>
       ) : null}
 
-      {state.aiEnabled ? (
+      {state.aiEnabled && (dueNow || brief) ? (
         <div className="section">
           {brief ? (
             <div className="card" style={{ padding: 14 }}>
@@ -80,11 +81,11 @@ export function TodayView({ state, onOpenLead, onLog }) {
               </div>
               <div style={{ whiteSpace: 'pre-wrap', fontSize: 14.5, lineHeight: 1.55 }}>{brief}</div>
             </div>
-          ) : (
-            <button className="btn wide" onClick={loadBrief} disabled={briefBusy || !dueNow}>
+          ) : dueNow ? (
+            <button className="btn wide" onClick={loadBrief} disabled={briefBusy}>
               <IconSpark /> {briefBusy ? 'Thinking...' : 'Plan my day'}
             </button>
-          )}
+          ) : null}
           <Notice kind="error">{briefError}</Notice>
         </div>
       ) : null}

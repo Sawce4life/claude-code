@@ -85,9 +85,17 @@ const LOG_TOOL = {
   },
 };
 
-export function createAi({ apiKey, model = 'claude-opus-5' }) {
+export function createAi({ apiKey, model = 'claude-opus-5', fetch: fetchImpl }) {
   const enabled = Boolean(apiKey);
-  const client = enabled ? new Anthropic({ apiKey, maxRetries: 2, timeout: 120000 }) : null;
+  const client = enabled
+    ? new Anthropic({
+      apiKey,
+      maxRetries: 2,
+      timeout: 120000,
+      // Injectable so the request shape can be asserted without a live key.
+      ...(fetchImpl ? { fetch: fetchImpl } : {}),
+    })
+    : null;
   // Some accounts and proxies do not accept the server-side fallback beta. The
   // first rejection turns it off for the life of the process instead of
   // failing every request after it.

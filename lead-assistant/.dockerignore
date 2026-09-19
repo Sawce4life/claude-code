@@ -1,0 +1,9 @@
+node_modules
+**/node_modules
+web/dist
+data
+.git
+.env
+*.md
+.browser-check.mjs
+.dark-check.mjs

@@ -115,7 +115,7 @@ export function App() {
         )}
       </main>
 
-      {!openLeadId && tab !== 'ask' ? (
+      {!openLeadId && (tab === 'today' || tab === 'leads') ? (
         <button className="fab" onClick={() => setLogging({ lead: null })}>
           <IconPlus /> Log a call
         </button>

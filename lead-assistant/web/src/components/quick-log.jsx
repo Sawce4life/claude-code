@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Sheet, Field, Notice, toLocalInput, fromLocalInput } from './ui.jsx';
 import { IconMic, IconSpark, IconCheck } from './icons.jsx';
 import { api } from '../api.js';
-import { applyDraft, liveLeads, timezoneOf, getState } from '../store.js';
+import { applyDraft, liveLeads, timezoneOf, getState, flushChanges } from '../store.js';
 import { parseCallLog } from '@shared/nlp.js';
 import { OUTCOME_LABELS, KIND_LABELS } from '@shared/records.js';
 import { describeTime } from '@shared/timezone.js';
@@ -68,6 +68,7 @@ export function QuickLog({ lead = null, onClose, onSaved }) {
     setBusy(true);
     setError('');
     try {
+      await flushChanges();
       const result = await api.parse(value);
       setDraft(normalize(result.draft, lead));
       setUsedAi(result.draft?.source === 'claude');

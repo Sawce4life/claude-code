@@ -1,0 +1,22 @@
+# Deploy on Render: New > Blueprint, point it at this repository, done.
+# The free plan sleeps when idle; a paid instance with a disk keeps the
+# database between restarts, which is what the disk below is for.
+services:
+  - type: web
+    name: lead-assistant
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SIGNUPS
+        value: open
+    disk:
+      name: lead-data
+      mountPath: /data
+      sizeGB: 1

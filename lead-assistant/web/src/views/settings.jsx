@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Field, Notice, Sheet } from '../components/ui.jsx';
 import { IconRefresh, IconCheck } from '../components/icons.jsx';
 import { api } from '../api.js';
@@ -18,6 +18,13 @@ const ZONES = (() => {
 export function SettingsView({ state }) {
   const [name, setName] = useState(state.user?.name || '');
   const [timezone, setTimezone] = useState(state.user?.timezone || 'UTC');
+  // The saved zone must always be one of the options, or the select would show
+  // somebody else's zone and quietly save it on the next tap.
+  const zones = useMemo(() => {
+    const set = new Set(['UTC', ...ZONES]);
+    if (timezone) set.add(timezone);
+    return [...set].sort();
+  }, [timezone]);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
@@ -85,7 +92,7 @@ export function SettingsView({ state }) {
           </Field>
           <Field label="Time zone" hint="Everything the assistant says about time uses this.">
             <select className="input" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
-              {ZONES.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
+              {zones.map((zone) => <option key={zone} value={zone}>{zone}</option>)}
             </select>
           </Field>
           <div className="btn-row">

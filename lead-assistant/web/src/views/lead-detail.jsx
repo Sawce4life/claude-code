@@ -5,7 +5,7 @@ import {
 } from '../components/icons.jsx';
 import { api } from '../api.js';
 import {
-  interactionsFor, saveLead, removeRow, logQuickOutcome, snooze, timezoneOf,
+  interactionsFor, saveLead, removeRow, logQuickOutcome, snooze, timezoneOf, flushChanges,
 } from '../store.js';
 import { STATUS_LABELS } from '@shared/priority.js';
 import { OUTCOME_LABELS, KIND_LABELS } from '@shared/records.js';
@@ -54,6 +54,7 @@ export function LeadDetailView({ state, leadId, onOpenLead, onLog, onBack }) {
     setSuggestBusy(true);
     setError('');
     try {
+      await flushChanges();
       const result = await api.suggest(lead.id);
       setSuggestion(result.suggestion);
     } catch (err) {

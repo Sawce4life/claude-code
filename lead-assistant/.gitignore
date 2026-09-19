@@ -11,3 +11,5 @@ data/
 # local verification scripts, not part of the app
 .browser-check.mjs
 .dark-check.mjs
+.ai-check.mjs
+.tz-check.mjs

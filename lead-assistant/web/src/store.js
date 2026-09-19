@@ -377,6 +377,18 @@ async function ingest(changes) {
 
 export function forceSync() { return sync(); }
 
+/**
+ * Pushes anything still queued and waits for it to land. The server-side AI
+ * features read from the server, so a lead created seconds ago has to get
+ * there before we ask about it.
+ */
+export async function flushChanges() {
+  if (!token) return;
+  if (pushTimer) { clearTimeout(pushTimer); pushTimer = null; }
+  if (outbox.size === 0) return;
+  await sync();
+}
+
 // --- reading ----------------------------------------------------------------
 
 export function liveLeads(snapshot = state) {
