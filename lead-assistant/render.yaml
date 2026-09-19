@@ -1,6 +1,11 @@
-# Deploy on Render: New > Blueprint, point it at this repository, done.
-# The free plan sleeps when idle; a paid instance with a disk keeps the
-# database between restarts, which is what the disk below is for.
+# For the case where this folder is a repository on its own.
+#
+# When it lives inside a larger repository, Render reads the render.yaml at
+# the top of that repository instead, which points back at this folder. Both
+# describe the same service.
+#
+# The free plan sleeps when idle and has no disk, so the database would be
+# wiped on every deploy. That is what the disk below is for.
 services:
   - type: web
     name: lead-assistant

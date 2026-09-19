@@ -64,12 +64,18 @@ reach. Any host that runs Docker will do. The cheapest sensible options are
 
 **On Render**, which needs the least fiddling:
 
-1. Push this folder to a GitHub repository.
-2. In Render, choose **New → Blueprint** and point it at that repository. It
-   reads `render.yaml` and sets itself up.
-3. When it asks for `ANTHROPIC_API_KEY`, paste your key, or leave it empty for
-   now. Everything except the AI features works without one.
-4. Wait for the first deploy, then open the address it gives you.
+1. In Render, choose **New → Blueprint** and pick the repository this folder is
+   in. It reads `render.yaml` from the top of the repository, which points back
+   here, and fills in the rest itself.
+2. The one thing it asks you for is `ANTHROPIC_API_KEY`. Paste your key, or
+   leave it empty for now. Everything except the AI features works without one.
+3. Approve the plan and wait for the first build, which takes a few minutes.
+4. Render shows the address at the top of the service page. That address is the
+   app. Open it on your phone and install it from there.
+
+If you would rather keep this app in a repository of its own, copy the
+`lead-assistant` folder out on its own and use the `render.yaml` inside it,
+which is the same blueprint without the folder redirection.
 
 Two things to do once it is live:
 

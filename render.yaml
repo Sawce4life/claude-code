@@ -1,0 +1,35 @@
+# Deploy Lead Assistant on Render.
+#
+# Render looks for this file at the top of the repository, which is why it
+# lives here rather than beside the app. It points at lead-assistant/, where
+# the app and its Dockerfile actually are.
+#
+# In Render: New > Blueprint, pick this repository, and approve the plan.
+# The only thing it asks you for is ANTHROPIC_API_KEY, which can stay blank.
+services:
+  - type: web
+    name: lead-assistant
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./lead-assistant/Dockerfile
+    dockerContext: ./lead-assistant
+    healthCheckPath: /api/health
+    envVars:
+      - key: DATA_DIR
+        value: /data
+      # Generated once and kept, so a restart does not sign you out.
+      - key: SESSION_SECRET
+        generateValue: true
+      # Left for you to fill in. Blank is fine: everything except the AI
+      # features works without it.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Change to "closed" once your account exists, so nobody else can sign up.
+      - key: SIGNUPS
+        value: open
+    # Without this disk the database is wiped on every deploy.
+    disk:
+      name: lead-data
+      mountPath: /data
+      sizeGB: 1
